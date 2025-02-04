@@ -18,17 +18,22 @@ import java.util.Map;
 import com.Angelvf3839.tarea3dwesangel.modelo.Credenciales;
 import com.Angelvf3839.tarea3dwesangel.modelo.Ejemplar;
 import com.Angelvf3839.tarea3dwesangel.modelo.Mensaje;
+import com.Angelvf3839.tarea3dwesangel.modelo.Perfil;
 import com.Angelvf3839.tarea3dwesangel.modelo.Persona;
 import com.Angelvf3839.tarea3dwesangel.modelo.Planta;
+import com.Angelvf3839.tarea3dwesangel.modelo.Sesion;
 import com.Angelvf3839.tarea3dwesangel.repositorios.EjemplarRepository;
 import com.Angelvf3839.tarea3dwesangel.repositorios.MensajeRepository;
 import com.Angelvf3839.tarea3dwesangel.repositorios.PersonaRepository;
 import com.Angelvf3839.tarea3dwesangel.repositorios.PlantaRepository;
+import com.Angelvf3839.tarea3dwesangel.servicios.Controlador;
 import com.Angelvf3839.tarea3dwesangel.servicios.ServiciosCredenciales;
+import com.Angelvf3839.tarea3dwesangel.servicios.ServiciosEjemplar;
 import com.Angelvf3839.tarea3dwesangel.servicios.ServiciosMensaje;
 import com.Angelvf3839.tarea3dwesangel.servicios.ServiciosPersona;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -48,7 +53,14 @@ public class MainController {
     private MensajeRepository mensajesRepository;
     
     @Autowired
+    @Lazy
+    private Controlador controlador;
+    
+    @Autowired
     private ServiciosCredenciales serviciosCredenciales;
+    
+    @Autowired
+    private ServiciosEjemplar serviciosEjemplar;
 
     @Autowired
     private ServiciosPersona serviciosPersona;
@@ -80,15 +92,43 @@ public class MainController {
         return "menuPersonal"; 
     }
     
+    
     @GetMapping("/index")
-    public String login(@RequestParam String usuario, @RequestParam String password) {
-        if ("admin".equals(usuario) && "admin".equals(password)) {
-            return "redirect:/menuAdmin";
-        } else if (serviciosCredenciales.autenticar(usuario, password)) {
-            return "redirect:/menuPersonal";
+    public String login(@RequestParam("usuario") String usuario, @RequestParam("password") String password) {
+        try {
+            boolean autenticado = serviciosCredenciales.autenticar(usuario, password);
+            if (autenticado) {
+                long idUsuario = serviciosPersona.idUsuarioAutenticado(usuario);
+                if (idUsuario == -1) {
+                    System.out.println("Error al obtener los datos del usuario.");
+                    return "redirect:/login?error=datosIncorrectos";
+                }
+
+                Perfil perfil;
+                if ("admin".equalsIgnoreCase(usuario)) {
+                    perfil = Perfil.ADMIN;
+                } else {
+                    perfil = Perfil.PERSONAL;
+                }
+
+                controlador.setUsuarioAutenticado(new Sesion(idUsuario, usuario, perfil));
+                System.out.println("✅ Sesión iniciada con éxito como: " + usuario);
+
+                if (perfil == Perfil.ADMIN) {
+                    return "redirect:/menuAdmin";
+                } else {
+                    return "redirect:/menuPersonal";
+                }
+            } else {
+                System.out.println("Usuario o contraseña incorrectos.");
+                return "redirect:/login?error=credencialesIncorrectas";
+            }
+        } catch (Exception e) {
+            System.out.println("Error al iniciar sesión: " + e.getMessage());
+            return "redirect:/login?error=errorInterno";
         }
-        return "redirect:/index?error=true";
     }
+
 
     @PostMapping("/ejemplares/guardar")
     public String guardarEjemplar(@RequestParam String nombre, @RequestParam String codigoPlanta) {
@@ -129,7 +169,7 @@ public class MainController {
         return "EjemplaresForm";
     }
 
-  
+    
     
     
     @GetMapping("/PlantasForm")
@@ -159,31 +199,44 @@ public class MainController {
     
 
     @PostMapping("/mensajes/guardar")
-    public String guardarMensaje(@RequestParam Long idEjemplar, 
-                                 @RequestParam String mensajeTexto) {
-        System.out.println("Recibido ID Ejemplar: " + idEjemplar);
-        System.out.println("Mensaje recibido: " + mensajeTexto);
+    public String guardarMensaje(@RequestParam("idEjemplar") Long idEjemplar, 
+                                 @RequestParam("mensajeTexto") String mensajeTexto) {
+        try {
+            System.out.println("🟢 Recibido ID Ejemplar: " + idEjemplar);
+            System.out.println("🟢 Mensaje recibido: " + mensajeTexto);
 
-        Ejemplar ejemplar = ejemplarRepository.findById(idEjemplar).orElse(null);
-        if (ejemplar == null) {
-            System.out.println("No existe un ejemplar con el ID proporcionado.");
-            return "redirect:/MensajesForm?error=EjemplarNoEncontrado";
+            Ejemplar ejemplar = serviciosEjemplar.buscarPorID(idEjemplar);
+            if (ejemplar == null) {
+                System.out.println("❌ No existe un ejemplar con el ID proporcionado.");
+                return "redirect:/MensajesForm?error=EjemplarNoEncontrado";
+            }
+
+            if (!serviciosMensaje.validarMensaje(mensajeTexto)) {
+                System.out.println("❌ El mensaje no es válido (demasiado largo o vacío).");
+                return "redirect:/MensajesForm?error=MensajeNoValido";
+            }
+
+            String nombreUsuario = controlador.getUsuarioAutenticado().getUsuarioAutenticado();
+
+            Persona persona = serviciosPersona.buscarPorNombre(nombreUsuario);
+            if (persona == null) {
+                System.out.println("No se encontró la persona autenticada.");
+                return "redirect:/MensajesForm?error=PersonaNoEncontrada";
+            }
+
+            Mensaje mensaje = new Mensaje(LocalDateTime.now(), mensajeTexto, persona, ejemplar);
+            serviciosMensaje.insertar(mensaje);
+            System.out.println("✅ Mensaje añadido con éxito.");
+
+            return "redirect:/MensajesForm?success=MensajeGuardado";
+
+        } catch (Exception e) {
+            System.out.println("❌ Error al crear el mensaje: " + e.getMessage());
+            return "redirect:/MensajesForm?error=ErrorGuardado";
         }
-
-        String nombreUsuario = "usuarioAutenticado";
-        Persona persona = serviciosPersona.buscarPorNombre(nombreUsuario);
-        if (persona == null) {
-            System.out.println("No se encontró la persona autenticada.");
-            return "redirect:/MensajesForm?error=UsuarioNoEncontrado";
-        }
-
-        Mensaje mensaje = new Mensaje(LocalDateTime.now(), mensajeTexto, persona, ejemplar);
-        serviciosMensaje.insertar(mensaje);
-        
-        System.out.println("✔️ Mensaje guardado correctamente en la BD");
-
-        return "redirect:/MensajesForm";
     }
+
+
 
 
     
@@ -194,6 +247,31 @@ public class MainController {
     	return "MensajesForm";
     }
  
+    
+    @GetMapping("/mensajes/fecha")
+    public String listarMensajesPorFecha(@RequestParam("primeraFecha") String primeraFecha,
+                                         @RequestParam("segundaFecha") String segundaFecha,
+                                         Model model) {
+        List<Mensaje> mensajes = serviciosMensaje.verMensajesRangoFechas(LocalDateTime.parse(primeraFecha), LocalDateTime.parse(segundaFecha));
+        model.addAttribute("mensajesPorFecha", mensajes);
+        return "MensajesForm";
+    }
+
+    @GetMapping("/mensajes/persona")
+    public String listarMensajesPorPersona(@RequestParam("idPersona") Long idPersona, Model model) {
+        List<Mensaje> mensajes = serviciosMensaje.verMensajesPorPersona(idPersona);
+        model.addAttribute("mensajesPorPersona", mensajes);
+        return "MensajesForm";
+    }
+
+    @GetMapping("/mensajes/planta")
+    public String listarMensajesPorPlanta(@RequestParam("codigoPlanta") String codigoPlanta, Model model) {
+        List<Mensaje> mensajes = serviciosMensaje.verMensajesPorCodigoPlanta(codigoPlanta);
+        model.addAttribute("mensajesPorPlanta", mensajes);
+        return "MensajesForm";
+    }
+
+    
     
     @PostMapping("/personas/guardar")
     public String guardarPersona(@RequestParam String nombre,
