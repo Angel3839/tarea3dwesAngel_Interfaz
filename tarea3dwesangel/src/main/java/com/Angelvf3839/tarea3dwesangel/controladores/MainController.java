@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -112,7 +113,7 @@ public class MainController {
                 }
 
                 controlador.setUsuarioAutenticado(new Sesion(idUsuario, usuario, perfil));
-                System.out.println("✅ Sesión iniciada con éxito como: " + usuario);
+                System.out.println("Sesión iniciada con éxito como: " + usuario);
 
                 if (perfil == Perfil.ADMIN) {
                     return "redirect:/menuAdmin";
@@ -202,17 +203,17 @@ public class MainController {
     public String guardarMensaje(@RequestParam("idEjemplar") Long idEjemplar, 
                                  @RequestParam("mensajeTexto") String mensajeTexto) {
         try {
-            System.out.println("🟢 Recibido ID Ejemplar: " + idEjemplar);
-            System.out.println("🟢 Mensaje recibido: " + mensajeTexto);
+            System.out.println("Recibido ID Ejemplar: " + idEjemplar);
+            System.out.println("Mensaje recibido: " + mensajeTexto);
 
             Ejemplar ejemplar = serviciosEjemplar.buscarPorID(idEjemplar);
             if (ejemplar == null) {
-                System.out.println("❌ No existe un ejemplar con el ID proporcionado.");
+                System.out.println("No existe un ejemplar con el ID proporcionado.");
                 return "redirect:/MensajesForm?error=EjemplarNoEncontrado";
             }
 
             if (!serviciosMensaje.validarMensaje(mensajeTexto)) {
-                System.out.println("❌ El mensaje no es válido (demasiado largo o vacío).");
+                System.out.println("El mensaje no es válido (demasiado largo o vacío).");
                 return "redirect:/MensajesForm?error=MensajeNoValido";
             }
 
@@ -226,12 +227,12 @@ public class MainController {
 
             Mensaje mensaje = new Mensaje(LocalDateTime.now(), mensajeTexto, persona, ejemplar);
             serviciosMensaje.insertar(mensaje);
-            System.out.println("✅ Mensaje añadido con éxito.");
+            System.out.println("Mensaje añadido con éxito.");
 
             return "redirect:/MensajesForm?success=MensajeGuardado";
 
         } catch (Exception e) {
-            System.out.println("❌ Error al crear el mensaje: " + e.getMessage());
+            System.out.println("Error al crear el mensaje: " + e.getMessage());
             return "redirect:/MensajesForm?error=ErrorGuardado";
         }
     }
@@ -299,6 +300,24 @@ public class MainController {
     	List<Persona> listaPersonas = personaRepository.findAll();
         model.addAttribute("personas", listaPersonas);
     	return "PersonasForm";
+    }
+    
+    @PostMapping("/personas/eliminar")
+    public String eliminarPersona(@RequestParam Long idPersona, RedirectAttributes redirectAttributes) {
+       try {
+           boolean eliminado = serviciosPersona.eliminarPersona(idPersona);
+           if (eliminado) {
+               System.out.println("Persona eliminada con éxito.");
+               redirectAttributes.addFlashAttribute("success", "Persona eliminada con éxito.");
+           } else {
+               System.out.println("No se encontró una persona con ese ID.");
+               redirectAttributes.addFlashAttribute("error", "No se encontró una persona con ese ID.");
+           }
+       } catch (Exception e) {
+           System.out.println("Error al borrar la persona: " + e.getMessage());
+           redirectAttributes.addFlashAttribute("error", "Error al borrar la persona.");
+       }
+       return "redirect:/PersonasForm";
     }
     
 }
