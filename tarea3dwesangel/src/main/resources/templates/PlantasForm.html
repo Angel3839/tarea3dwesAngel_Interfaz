@@ -7,6 +7,7 @@
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/1660/1660438.png">
     
     <style>
         body {
@@ -34,7 +35,7 @@
             align-items: center;
         }
 
-        .table-container {
+        .table-container, .form-container {
             width: 80%;
             background-color: rgba(255, 255, 255, 0.2);
             padding: 20px;
@@ -64,6 +65,20 @@
             background-color: #45A049;
             transform: translateY(-2px);
         }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            border-color: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        footer {
+            margin-top: 30px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -73,8 +88,10 @@
 
     <div class="container">
         <h1 class="text-center mb-4">Gestión de Plantas</h1>
-        
+
+        <!-- Formulario para agregar una nueva planta -->
         <div class="form-container">
+            <h3 class="text-center mb-3">Agregar Nueva Planta</h3>
             <form th:action="@{/plantas/guardar}" method="post">
                 <div class="mb-3">
                     <label for="codigo" class="form-label">Código</label>
@@ -97,8 +114,10 @@
                 </div>
             </form>
         </div>
-        
+
+        <!-- Tabla con el listado de plantas -->
         <div class="table-container mt-4">
+            <h3 class="text-center mb-3">Lista de Plantas</h3>
             <table class="table table-hover">
                 <thead>
                     <tr>
@@ -116,6 +135,53 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Formulario para modificar el nombre común de una planta -->
+        <div class="form-container mt-4">
+            <h3 class="text-center mb-3">Modificar Nombre Común</h3>
+            <form th:action="@{/plantas/modificarNombre}" method="post">
+                <div class="mb-3">
+                    <label for="codigoPlanta" class="form-label">Seleccionar Planta</label>
+                    <select id="codigoPlanta" name="codigo" class="form-select" required>
+                        <option value="">Seleccione una planta</option>
+                        <option th:each="planta : ${plantas}" th:value="${planta.codigo}" th:text="${planta.codigo}"></option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="nuevoNombreComun" class="form-label">Nuevo Nombre Común</label>
+                    <input type="text" id="nuevoNombreComun" name="nuevoNombreComun" class="form-control" required>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <button type="submit" class="btn btn-warning">Actualizar</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Formulario para modificar el nombre científico de una planta -->
+		<div class="form-container mt-4">
+		    <h3 class="text-center mb-3">Modificar Nombre Científico</h3>
+		    <form th:action="@{/plantas/modificarNombreCientifico}" method="post">
+		        <div class="mb-3">
+		            <label for="codigoPlantaCientifico" class="form-label">Seleccionar Planta</label>
+		            <select id="codigoPlantaCientifico" name="codigo" class="form-select" required>
+		                <option value="">Seleccione una planta</option>
+		                <option th:each="planta : ${plantas}" th:value="${planta.codigo}" th:text="${planta.codigo}"></option>
+		            </select>
+		        </div>
+		
+		        <div class="mb-3">
+		            <label for="nuevoNombreCientifico" class="form-label">Nuevo Nombre Científico</label>
+		            <input type="text" id="nuevoNombreCientifico" name="nuevoNombreCientifico" class="form-control" required>
+		        </div>
+		
+		        <div class="d-flex justify-content-between">
+		            <button type="submit" class="btn btn-warning">Actualizar</button>
+		        </div>
+		    </form>
+		</div>
+        
     </div>
 
     <footer>

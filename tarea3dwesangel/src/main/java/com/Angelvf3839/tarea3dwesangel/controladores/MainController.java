@@ -32,6 +32,7 @@ import com.Angelvf3839.tarea3dwesangel.servicios.ServiciosCredenciales;
 import com.Angelvf3839.tarea3dwesangel.servicios.ServiciosEjemplar;
 import com.Angelvf3839.tarea3dwesangel.servicios.ServiciosMensaje;
 import com.Angelvf3839.tarea3dwesangel.servicios.ServiciosPersona;
+import com.Angelvf3839.tarea3dwesangel.servicios.ServiciosPlanta;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -59,6 +60,9 @@ public class MainController {
     
     @Autowired
     private ServiciosCredenciales serviciosCredenciales;
+    
+    @Autowired
+    private ServiciosPlanta serviciosPlanta;
     
     @Autowired
     private ServiciosEjemplar serviciosEjemplar;
@@ -186,17 +190,101 @@ public class MainController {
     }
     
     @PostMapping("/plantas/guardar")
-    public String guardarPlanta(@RequestParam String codigo,
-                                @RequestParam String nombreComun,
-                                @RequestParam String nombreCientifico) {
-        Planta planta = new Planta();
-        planta.setCodigo(codigo);
-        planta.setNombreComun(nombreComun);
-        planta.setNombreCientifico(nombreCientifico);
+    public String nuevaPlanta(@RequestParam("codigo") String codigo,
+                              @RequestParam("nombreComun") String nombreComun,
+                              @RequestParam("nombreCientifico") String nombreCientifico,
+                              RedirectAttributes redirectAttributes) {
+        try {
+            if (!serviciosPlanta.validarCodigo(codigo)) {
+                redirectAttributes.addFlashAttribute("error", "El código no es válido. Inténtalo de nuevo.");
+                return "redirect:/PlantasForm";
+            }
 
-        plantaRepository.save(planta);
+            if (serviciosPlanta.codigoExistente(codigo)) {
+                redirectAttributes.addFlashAttribute("error", "El código ya está registrado. Inténtalo con otro.");
+                return "redirect:/PlantasForm";
+            }
+
+            Planta nuevaPlanta = new Planta(codigo, nombreComun, nombreCientifico);
+
+            if (!serviciosPlanta.validarPlanta(nuevaPlanta)) {
+                redirectAttributes.addFlashAttribute("error", "Los datos de la planta no son válidos.");
+                return "redirect:/PlantasForm";
+            }
+
+            serviciosPlanta.insertar(nuevaPlanta);
+            redirectAttributes.addFlashAttribute("success", "Planta creada con éxito.");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Error al crear la planta: " + e.getMessage());
+        }
         return "redirect:/PlantasForm";
     }
+
+    
+    @PostMapping("/plantas/modificarNombre")
+    public String modificarNombreComun(@RequestParam("codigo") String codigo, 
+                                       @RequestParam("nuevoNombreComun") String nuevoNombreComun, 
+                                       RedirectAttributes redirectAttributes) {
+        try {
+            Planta plantaSeleccionada = serviciosPlanta.buscarPorCodigo(codigo.trim());
+
+            if (plantaSeleccionada == null) {
+                redirectAttributes.addFlashAttribute("error", "No existe una planta con ese código.");
+                return "redirect:/plantas";
+            }
+
+            if (nuevoNombreComun == null || nuevoNombreComun.trim().isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "El nombre común no puede estar vacío.");
+                return "redirect:/plantas";
+            }
+
+            boolean actualizado = serviciosPlanta.actualizarNombreComun(codigo.trim(), nuevoNombreComun.trim());
+
+            if (actualizado) {
+                redirectAttributes.addFlashAttribute("success", "Nombre común actualizado con éxito a: " + nuevoNombreComun);
+            } else {
+                redirectAttributes.addFlashAttribute("error", "Error: No se pudo actualizar el nombre común.");
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Error al modificar el nombre común: " + e.getMessage());
+        }
+
+        return "redirect:/PlantasForm";
+    }
+
+    @PostMapping("/plantas/modificarNombreCientifico")
+    public String modificarNombreCientifico(@RequestParam("codigo") String codigo, 
+                                           @RequestParam("nuevoNombreCientifico") String nuevoNombreCientifico, 
+                                           RedirectAttributes redirectAttributes) {
+        try {
+            Planta plantaSeleccionada = serviciosPlanta.buscarPorCodigo(codigo.trim());
+
+            if (plantaSeleccionada == null) {
+                redirectAttributes.addFlashAttribute("error", "No existe una planta con ese código.");
+                return "redirect:/PlantasForm";
+            }
+
+            if (nuevoNombreCientifico == null || nuevoNombreCientifico.trim().isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "El nombre científico no puede estar vacío.");
+                return "redirect:/PlantasForm";
+            }
+
+            boolean actualizado = serviciosPlanta.actualizarNombreCientifico(codigo.trim(), nuevoNombreCientifico.trim());
+
+            if (actualizado) {
+                redirectAttributes.addFlashAttribute("success", "Nombre científico actualizado con éxito a: " + nuevoNombreCientifico);
+            } else {
+                redirectAttributes.addFlashAttribute("error", "Error: No se pudo actualizar el nombre científico.");
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Error al modificar el nombre científico: " + e.getMessage());
+        }
+
+        return "redirect:/PlantasForm";
+    }
+
+    
+    
     
 
     @PostMapping("/mensajes/guardar")
@@ -217,7 +305,8 @@ public class MainController {
                 return "redirect:/MensajesForm?error=MensajeNoValido";
             }
 
-            String nombreUsuario = controlador.getUsuarioAutenticado().getUsuarioAutenticado();
+            Sesion sessionn = controlador.getUsuarioAutenticado();
+            String nombreUsuario = sessionn.getUsuarioAutenticado();
 
             Persona persona = serviciosPersona.buscarPorNombre(nombreUsuario);
             if (persona == null) {
@@ -226,7 +315,7 @@ public class MainController {
             }
 
             Mensaje mensaje = new Mensaje(LocalDateTime.now(), mensajeTexto, persona, ejemplar);
-            serviciosMensaje.insertar(mensaje);
+            serviciosMensaje.insertar(mensaje);  
             System.out.println("Mensaje añadido con éxito.");
 
             return "redirect:/MensajesForm?success=MensajeGuardado";
@@ -275,25 +364,66 @@ public class MainController {
     
     
     @PostMapping("/personas/guardar")
-    public String guardarPersona(@RequestParam String nombre,
-                                 @RequestParam String email,
-                                 @RequestParam String usuario,
-                                 @RequestParam String password) {
-        
-        Persona nuevaPersona = new Persona();
-        nuevaPersona.setNombre(nombre);
-        nuevaPersona.setEmail(email);
-        
-        Credenciales credenciales = new Credenciales();
-        credenciales.setUsuario(usuario);
-        credenciales.setPassword(password);
-        credenciales.setPersona(nuevaPersona);
-        
-        nuevaPersona.setCredenciales(credenciales);
-        
-        personaRepository.save(nuevaPersona);
+    public String nuevaPersona(@RequestParam String nombre,
+                               @RequestParam String email,
+                               @RequestParam String usuario,
+                               @RequestParam String password,
+                               RedirectAttributes redirectAttributes) {
+        try {          
+        	if (nombre.trim().isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "El nombre no puede estar vacío.");
+                return "redirect:/PersonasForm";
+            }
+
+            if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
+                redirectAttributes.addFlashAttribute("error", "El email no tiene un formato válido.");
+                return "redirect:/PersonasForm";
+            }
+
+            if (serviciosPersona.emailExistente(email)) {
+                redirectAttributes.addFlashAttribute("error", "El email ya está registrado en el sistema.");
+                return "redirect:/PersonasForm";
+            }
+
+            if (usuario.contains(" ")) {
+                redirectAttributes.addFlashAttribute("error", "El nombre de usuario no puede contener espacios.");
+                return "redirect:/PersonasForm";
+            }
+
+            if (serviciosCredenciales.usuarioExistente(usuario)) {
+                redirectAttributes.addFlashAttribute("error", "El nombre de usuario ya está registrado en el sistema.");
+                return "redirect:/PersonasForm";
+            }
+
+            if (!serviciosCredenciales.validarContraseña(password)) {
+                redirectAttributes.addFlashAttribute("error", "La contraseña no cumple con los requisitos mínimos.");
+                return "redirect:/PersonasForm";
+            }
+
+            Persona nuevaPersona = new Persona();
+            nuevaPersona.setNombre(nombre);
+            nuevaPersona.setEmail(email);
+
+            Credenciales credenciales = new Credenciales();
+            credenciales.setUsuario(usuario);
+            credenciales.setPassword(password);
+            credenciales.setPersona(nuevaPersona);
+
+            nuevaPersona.setCredenciales(credenciales);
+
+            if (!serviciosPersona.validarPersona(nuevaPersona)) {
+                redirectAttributes.addFlashAttribute("error", "Los datos de la persona no son válidos.");
+                return "redirect:/PersonasForm";
+            }
+
+            serviciosPersona.insertar(nuevaPersona);
+            redirectAttributes.addFlashAttribute("success", "Persona registrada con éxito.");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Error al registrar la persona: " + e.getMessage());
+        }
         return "redirect:/PersonasForm";
     }
+
     
     @GetMapping("/PersonasForm")
     public String gestionPersonas(Model model) {
