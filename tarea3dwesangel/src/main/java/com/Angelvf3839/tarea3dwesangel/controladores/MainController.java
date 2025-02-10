@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,6 +98,12 @@ public class MainController {
         return "menuPersonal"; 
     }
     
+    @GetMapping("/")
+    public String mostrarIndex(Model model) {
+        List<Planta> listaPlantas = plantaRepository.findAll();
+        model.addAttribute("plantas", listaPlantas);
+        return "index";
+    }
     
     @GetMapping("/index")
     public String login(@RequestParam("usuario") String usuario, @RequestParam("password") String password) {
@@ -136,15 +143,14 @@ public class MainController {
 
 
     @PostMapping("/ejemplares/guardar")
-    public String guardarEjemplar(@RequestParam String nombre, @RequestParam String codigoPlanta) {
+    public String guardarEjemplar(@RequestParam String nombre, @RequestParam String codigoPlanta, RedirectAttributes redirectAttributes) {
         Planta planta = plantaRepository.findByCodigo(codigoPlanta).orElse(null);
 
         if (planta == null) {
             System.out.println("Planta no encontrada con el código: " + codigoPlanta);
-            return "redirect:/EjemplaresForm?error=PlantaNoEncontrada";
+            redirectAttributes.addFlashAttribute("error", "Planta no encontrada con el código proporcionado.");
+            return "redirect:/EjemplaresForm?error=true";
         }
-
-        System.out.println("Planta encontrada: " + planta.getNombreComun());
 
         Ejemplar ejemplar = new Ejemplar();
         ejemplar.setNombre(nombre);
@@ -153,7 +159,28 @@ public class MainController {
         ejemplarRepository.save(ejemplar);
         System.out.println("Ejemplar guardado correctamente.");
 
-        return "redirect:/EjemplaresForm";
+        Sesion sesionActual = controlador.getUsuarioAutenticado();
+        if (sesionActual == null) {
+            System.out.println("No hay sesión activa.");
+            redirectAttributes.addFlashAttribute("error", "No hay sesión activa para registrar el mensaje.");
+            return "redirect:/EjemplaresForm?error=true";
+        }
+
+        Persona persona = serviciosPersona.buscarPorNombre(sesionActual.getUsuarioAutenticado());
+        if (persona == null) {
+            System.out.println("No se encontró la persona que realizó el registro.");
+            redirectAttributes.addFlashAttribute("error", "Error al asociar el mensaje al usuario.");
+            return "redirect:/EjemplaresForm?error=true";
+        }
+
+        String contenidoMensaje = "Ejemplar registrado por " + persona.getNombre() + " el " + LocalDateTime.now().toString();
+        Mensaje mensajeInicial = new Mensaje(LocalDateTime.now(), contenidoMensaje, persona, ejemplar);
+
+        mensajesRepository.save(mensajeInicial);
+        System.out.println("Mensaje inicial creado correctamente.");
+
+        redirectAttributes.addFlashAttribute("success", "Ejemplar y mensaje inicial guardados con éxito.");
+        return "redirect:/EjemplaresForm?success=true";
     }
     
     @GetMapping("/verEjemplares")
@@ -174,9 +201,7 @@ public class MainController {
         return "EjemplaresForm";
     }
 
-    
-    
-    
+      
     @GetMapping("/PlantasForm")
     public String gestionPlantas(Model model) {
         List<Planta> listaPlantas = plantaRepository.findAll();
@@ -197,27 +222,30 @@ public class MainController {
         try {
             if (!serviciosPlanta.validarCodigo(codigo)) {
                 redirectAttributes.addFlashAttribute("error", "El código no es válido. Inténtalo de nuevo.");
-                return "redirect:/PlantasForm";
+                return "redirect:/PlantasForm?error=true";
             }
 
             if (serviciosPlanta.codigoExistente(codigo)) {
                 redirectAttributes.addFlashAttribute("error", "El código ya está registrado. Inténtalo con otro.");
-                return "redirect:/PlantasForm";
+                return "redirect:/PlantasForm?error=true";
             }
 
             Planta nuevaPlanta = new Planta(codigo, nombreComun, nombreCientifico);
 
             if (!serviciosPlanta.validarPlanta(nuevaPlanta)) {
                 redirectAttributes.addFlashAttribute("error", "Los datos de la planta no son válidos.");
-                return "redirect:/PlantasForm";
+                return "redirect:/PlantasForm?error=true";
             }
 
             serviciosPlanta.insertar(nuevaPlanta);
             redirectAttributes.addFlashAttribute("success", "Planta creada con éxito.");
+            return "redirect:/PlantasForm?success=true";
+            
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "Error al crear la planta: " + e.getMessage());
         }
-        return "redirect:/PlantasForm";
+        return "redirect:/PlantasForm?error=true";
+
     }
 
     
@@ -284,8 +312,6 @@ public class MainController {
     }
 
     
-    
-    
 
     @PostMapping("/mensajes/guardar")
     public String guardarMensaje(@RequestParam("idEjemplar") Long idEjemplar, 
@@ -318,7 +344,7 @@ public class MainController {
             serviciosMensaje.insertar(mensaje);  
             System.out.println("Mensaje añadido con éxito.");
 
-            return "redirect:/MensajesForm?success=MensajeGuardado";
+            return "redirect:/MensajesForm?success=true";
 
         } catch (Exception e) {
             System.out.println("Error al crear el mensaje: " + e.getMessage());
@@ -326,38 +352,34 @@ public class MainController {
         }
     }
 
-
-
-
-    
+   
     @GetMapping("/MensajesForm")
     public String gestionMensajes(Model model) {
-    	List<Mensaje> listarMensajes = mensajesRepository.findAll();
-    	model.addAttribute("mensajes", listarMensajes);
-    	return "MensajesForm";
-    }
- 
-    
-    @GetMapping("/mensajes/fecha")
-    public String listarMensajesPorFecha(@RequestParam("primeraFecha") String primeraFecha,
-                                         @RequestParam("segundaFecha") String segundaFecha,
-                                         Model model) {
-        List<Mensaje> mensajes = serviciosMensaje.verMensajesRangoFechas(LocalDateTime.parse(primeraFecha), LocalDateTime.parse(segundaFecha));
-        model.addAttribute("mensajesPorFecha", mensajes);
-        return "MensajesForm";
-    }
+        try {
+            LocalDateTime fechaInicio = LocalDateTime.of(1900, 1, 1, 0, 0);
+            LocalDateTime fechaFin = LocalDateTime.now();
+            List<Mensaje> mensajesPorFecha = serviciosMensaje.verMensajesRangoFechas(fechaInicio, fechaFin);
 
-    @GetMapping("/mensajes/persona")
-    public String listarMensajesPorPersona(@RequestParam("idPersona") Long idPersona, Model model) {
-        List<Mensaje> mensajes = serviciosMensaje.verMensajesPorPersona(idPersona);
-        model.addAttribute("mensajesPorPersona", mensajes);
-        return "MensajesForm";
-    }
+            List<Persona> personas = (List<Persona>) serviciosPersona.verTodos();
+            List<Mensaje> mensajesPorPersona = new ArrayList<>();
+            for (Persona persona : personas) {
+                mensajesPorPersona.addAll(serviciosMensaje.verMensajesPorPersona(persona.getId()));
+            }
 
-    @GetMapping("/mensajes/planta")
-    public String listarMensajesPorPlanta(@RequestParam("codigoPlanta") String codigoPlanta, Model model) {
-        List<Mensaje> mensajes = serviciosMensaje.verMensajesPorCodigoPlanta(codigoPlanta);
-        model.addAttribute("mensajesPorPlanta", mensajes);
+            List<Planta> plantas = serviciosPlanta.verTodas();
+            List<Mensaje> mensajesPorPlanta = new ArrayList<>();
+            for (Planta planta : plantas) {
+                mensajesPorPlanta.addAll(serviciosMensaje.verMensajesPorCodigoPlanta(planta.getCodigo()));
+            }
+
+            model.addAttribute("mensajesPorFecha", mensajesPorFecha);
+            model.addAttribute("mensajesPorPersona", mensajesPorPersona);
+            model.addAttribute("mensajesPorPlanta", mensajesPorPlanta);
+
+        } catch (Exception e) {
+            System.out.println("Error al cargar los mensajes: " + e.getMessage());
+        }
+
         return "MensajesForm";
     }
 
@@ -369,35 +391,35 @@ public class MainController {
                                @RequestParam String usuario,
                                @RequestParam String password,
                                RedirectAttributes redirectAttributes) {
-        try {          
-        	if (nombre.trim().isEmpty()) {
+        try {
+            if (nombre.trim().isEmpty()) {
                 redirectAttributes.addFlashAttribute("error", "El nombre no puede estar vacío.");
-                return "redirect:/PersonasForm";
+                return "redirect:/PersonasForm?error=true";
             }
 
             if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
                 redirectAttributes.addFlashAttribute("error", "El email no tiene un formato válido.");
-                return "redirect:/PersonasForm";
+                return "redirect:/PersonasForm?error=true";
             }
 
             if (serviciosPersona.emailExistente(email)) {
                 redirectAttributes.addFlashAttribute("error", "El email ya está registrado en el sistema.");
-                return "redirect:/PersonasForm";
+                return "redirect:/PersonasForm?error=true";
             }
 
             if (usuario.contains(" ")) {
                 redirectAttributes.addFlashAttribute("error", "El nombre de usuario no puede contener espacios.");
-                return "redirect:/PersonasForm";
+                return "redirect:/PersonasForm?error=true";
             }
 
             if (serviciosCredenciales.usuarioExistente(usuario)) {
                 redirectAttributes.addFlashAttribute("error", "El nombre de usuario ya está registrado en el sistema.");
-                return "redirect:/PersonasForm";
+                return "redirect:/PersonasForm?error=true";
             }
 
             if (!serviciosCredenciales.validarContraseña(password)) {
                 redirectAttributes.addFlashAttribute("error", "La contraseña no cumple con los requisitos mínimos.");
-                return "redirect:/PersonasForm";
+                return "redirect:/PersonasForm?error=true";
             }
 
             Persona nuevaPersona = new Persona();
@@ -413,15 +435,16 @@ public class MainController {
 
             if (!serviciosPersona.validarPersona(nuevaPersona)) {
                 redirectAttributes.addFlashAttribute("error", "Los datos de la persona no son válidos.");
-                return "redirect:/PersonasForm";
+                return "redirect:/PersonasForm?error=true";
             }
 
             serviciosPersona.insertar(nuevaPersona);
             redirectAttributes.addFlashAttribute("success", "Persona registrada con éxito.");
+            return "redirect:/PersonasForm?success=true";
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "Error al registrar la persona: " + e.getMessage());
+            return "redirect:/PersonasForm?error=true";
         }
-        return "redirect:/PersonasForm";
     }
 
     
@@ -439,15 +462,17 @@ public class MainController {
            if (eliminado) {
                System.out.println("Persona eliminada con éxito.");
                redirectAttributes.addFlashAttribute("success", "Persona eliminada con éxito.");
+               return "redirect:/PersonasForm?deleted=true";
            } else {
                System.out.println("No se encontró una persona con ese ID.");
                redirectAttributes.addFlashAttribute("error", "No se encontró una persona con ese ID.");
+               return "redirect:/PersonasForm?error=true";
            }
        } catch (Exception e) {
            System.out.println("Error al borrar la persona: " + e.getMessage());
            redirectAttributes.addFlashAttribute("error", "Error al borrar la persona.");
+           return "redirect:/PersonasForm?error=true";
        }
-       return "redirect:/PersonasForm";
     }
     
 }
