@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Service;
 
 import com.Angelvf3839.tarea3dwesangel.modelo.Persona;
+import com.Angelvf3839.tarea3dwesangel.repositorios.CredencialesRepository;
 import com.Angelvf3839.tarea3dwesangel.repositorios.PersonaRepository;
 
 import jakarta.transaction.Transactional;
@@ -16,6 +17,10 @@ public class ServiciosPersona {
 
     @Autowired
     private PersonaRepository personaRepo;
+    
+    @Autowired
+    private CredencialesRepository credencialesRepo;
+
 
     public void insertar(Persona pers) {
         personaRepo.save(pers);
@@ -55,6 +60,11 @@ public class ServiciosPersona {
 
     public Persona buscarPorNombre(String nombre){
     	return personaRepo.findByNombreContainingIgnoreCase(nombre);
+    }
+    
+    public Persona buscarPorNombreDeUsuario(String nombreUsuario) {
+        var credenciales = credencialesRepo.buscarPorUsuario(nombreUsuario);
+        return (credenciales != null) ? credenciales.getPersona() : null;
     }
     
     @Transactional

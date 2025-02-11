@@ -11,6 +11,9 @@ import com.Angelvf3839.tarea3dwesangel.modelo.Credenciales;
 public interface CredencialesRepository extends JpaRepository<Credenciales, Long> {
 
     boolean existsByUsuario(String usuario);
+    
+    @Query("SELECT c FROM Credenciales c WHERE c.usuario = :usuario")
+    Credenciales buscarPorUsuario(@Param("usuario") String usuario);
 
     @Query("SELECT COUNT(c) > 0 FROM Credenciales c WHERE c.usuario = :usuario AND c.password = :password")
     boolean verificarCredenciales(@Param("usuario") String usuario, @Param("password") String password);

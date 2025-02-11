@@ -334,7 +334,7 @@ public class MainController {
             Sesion sessionn = controlador.getUsuarioAutenticado();
             String nombreUsuario = sessionn.getUsuarioAutenticado();
 
-            Persona persona = serviciosPersona.buscarPorNombre(nombreUsuario);
+            Persona persona = serviciosPersona.buscarPorNombreDeUsuario(nombreUsuario);
             if (persona == null) {
                 System.out.println("No se encontró la persona autenticada.");
                 return "redirect:/MensajesForm?error=PersonaNoEncontrada";
