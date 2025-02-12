@@ -74,6 +74,8 @@ public class MainController {
     @Autowired
     private ServiciosMensaje serviciosMensaje;
     
+    
+    /* Método para ver plantas */
     @GetMapping("/verPlantas")
     public String verPlantas(Model model) {
         List<Planta> listaPlantas = plantaRepository.findAll();
@@ -98,6 +100,7 @@ public class MainController {
         return "menuPersonal"; 
     }
     
+    /*Método para mostrar el index */
     @GetMapping("/")
     public String mostrarIndex(Model model) {
         List<Planta> listaPlantas = plantaRepository.findAll();
@@ -105,6 +108,33 @@ public class MainController {
         return "index";
     }
     
+    /* Método para cerrar sesión */
+    @GetMapping("/cerrarSesion")
+    public String cerrarSesion() {
+        controlador.setUsuarioAutenticado(null);
+        System.out.println("Sesión cerrada correctamente.");
+        return "redirect:/";
+    }
+
+    /* Método para volver al menú según el perfil loegueado */
+    @GetMapping("/volverMenu")
+    public String volverMenu() {
+        Sesion sesionActual = controlador.getUsuarioAutenticado();
+
+        if (sesionActual != null) {
+            Perfil perfilUsuario = sesionActual.getPerfilusuarioAutenticado();
+
+            if (perfilUsuario == Perfil.ADMIN) {
+                return "redirect:/menuAdmin";
+            } else if (perfilUsuario == Perfil.PERSONAL) {
+                return "redirect:/menuPersonal";
+            }
+        }
+
+        return "redirect:/index";
+    }
+    
+    /* Método para loguearse */
     @GetMapping("/index")
     public String login(@RequestParam("usuario") String usuario, @RequestParam("password") String password) {
         try {
@@ -142,6 +172,7 @@ public class MainController {
     }
 
 
+    /* Método para guardar un ejemplar */
     @PostMapping("/ejemplares/guardar")
     public String guardarEjemplar(@RequestParam String nombre, @RequestParam String codigoPlanta, RedirectAttributes redirectAttributes) {
         Planta planta = plantaRepository.findByCodigo(codigoPlanta).orElse(null);
@@ -214,6 +245,7 @@ public class MainController {
         return "PlantasForm";
     }
     
+    /* Método para guardar una planta */
     @PostMapping("/plantas/guardar")
     public String nuevaPlanta(@RequestParam("codigo") String codigo,
                               @RequestParam("nombreComun") String nombreComun,
@@ -248,7 +280,7 @@ public class MainController {
 
     }
 
-    
+    /* Método para cambiar el nombre común de una planta */
     @PostMapping("/plantas/modificarNombre")
     public String modificarNombreComun(@RequestParam("codigo") String codigo, 
                                        @RequestParam("nuevoNombreComun") String nuevoNombreComun, 
@@ -280,6 +312,7 @@ public class MainController {
         return "redirect:/PlantasForm";
     }
 
+    /* Método para cambiar el nombre científico de una planta */
     @PostMapping("/plantas/modificarNombreCientifico")
     public String modificarNombreCientifico(@RequestParam("codigo") String codigo, 
                                            @RequestParam("nuevoNombreCientifico") String nuevoNombreCientifico, 
@@ -312,7 +345,7 @@ public class MainController {
     }
 
     
-
+    /* Método para guardar un mensaje */
     @PostMapping("/mensajes/guardar")
     public String guardarMensaje(@RequestParam("idEjemplar") Long idEjemplar, 
                                  @RequestParam("mensajeTexto") String mensajeTexto) {
@@ -384,7 +417,7 @@ public class MainController {
     }
 
     
-    
+    /* Método para guardar una nueva persona */
     @PostMapping("/personas/guardar")
     public String nuevaPersona(@RequestParam String nombre,
                                @RequestParam String email,
@@ -455,6 +488,7 @@ public class MainController {
     	return "PersonasForm";
     }
     
+    /* Método para eliminar una persona */
     @PostMapping("/personas/eliminar")
     public String eliminarPersona(@RequestParam Long idPersona, RedirectAttributes redirectAttributes) {
        try {
