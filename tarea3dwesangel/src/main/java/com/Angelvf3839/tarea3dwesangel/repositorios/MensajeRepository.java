@@ -25,4 +25,6 @@ public interface MensajeRepository extends JpaRepository<Mensaje, Long> {
 
     @Query("SELECT m FROM Mensaje m WHERE m.ejemplar.id = :idEjemplar")
     List<Mensaje> mensajesPorEjemplar(@Param("idEjemplar") long idEjemplar);
+    
+    List<Mensaje> findByEjemplarIdOrderByFechaHoraAsc(Long idEjemplar);
 }

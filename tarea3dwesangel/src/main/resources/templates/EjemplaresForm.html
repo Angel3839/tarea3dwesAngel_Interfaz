@@ -34,15 +34,6 @@
             align-items: center;
         }
         
-        .form-container {
-            width: 50%;
-            max-width: 600px;
-            background-color: rgba(255, 255, 255, 0.2);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        }
-        
         .form-label {
             color: white;
         }
@@ -67,14 +58,16 @@
             background-color: #5a6268;
         }
         
-        .table-container {
-            width: 50%;
-            background-color: rgba(255, 255, 255, 0.2);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-            text-align: center;
-        }
+        .form-container, .table-container {
+		    width: 50%;
+		    max-width: 600px;
+		    margin: 20px auto;
+		    background-color: rgba(255, 255, 255, 0.2);
+		    padding: 20px;
+		    border-radius: 12px;
+		    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+		    text-align: center;
+		}
         
         .table th, .table td {
             text-align: center;
@@ -165,6 +158,80 @@
             </tbody>
         </table>
     </div>
+    
+    <div class="form-container mt-4">
+	    <h3 class="text-center mb-3">Filtrar Ejemplares por Planta</h3>
+	    <form th:action="@{/ejemplares/filtrar}" method="get">
+	        <div class="mb-3">
+	            <label for="codigoPlantaFiltro" class="form-label">Seleccionar Planta</label>
+	            <select id="codigoPlantaFiltro" name="codigoPlanta" class="form-select" required>
+	                <option value="">Seleccione una planta</option>
+	                <option th:each="planta : ${plantas}" 
+	                        th:value="${planta.codigo}" 
+	                        th:text="${planta.codigo + ' - ' + planta.nombreComun}"></option>
+	            </select>
+	        </div>
+	        <div class="d-flex justify-content-between">
+	            <button type="submit" class="btn btn-primary">Filtrar</button>
+	            <a th:href="@{/EjemplaresForm}" class="btn btn-secondary">Ver Todos</a>
+	        </div>
+	    </form>
+	</div>
+	
+	<div class="table-container mt-4" th:if="${ejemplaresFiltrados != null}">
+	    <h3 class="text-center mb-3">Ejemplares Por Planta Filtrados</h3>
+	    <table class="table table-hover">
+	        <thead>
+	            <tr>
+	                <th>Nombre del Ejemplar</th>
+	                <th>Código de Planta</th>
+	            </tr>
+	        </thead>
+	        <tbody>
+	            <tr th:each="ejemplar : ${ejemplaresFiltrados}">
+	                <td th:text="${ejemplar.nombre}"></td>
+	                <td th:text="${ejemplar.planta.codigo}"></td>
+	            </tr>
+	        </tbody>
+	    </table>
+	</div>
+	
+	<div class="form-container mt-4">
+	    <h3 class="text-center mb-3">Ver Mensajes Iniciales por Ejemplar</h3>
+	    <form th:action="@{/ejemplares/verMensajes}" method="get">
+	        <div class="mb-3">
+	            <label for="ejemplarSeleccionado" class="form-label">Seleccionar Ejemplar</label>
+	            <select id="ejemplarSeleccionado" name="idEjemplar" class="form-select" required>
+	                <option value="">Seleccione un ejemplar</option>
+	                <option th:each="ejemplar : ${ejemplares}" 
+	                        th:value="${ejemplar.id}" 
+	                        th:text="${ejemplar.nombre + ' (' + ejemplar.planta.codigo + ')'}">
+	                </option>
+	            </select>
+	        </div>
+	        <button type="submit" class="btn btn-primary">Ver Mensajes</button>
+	    </form>
+	</div>
+	
+	<div class="table-container mt-4" th:if="${mensajesIniciales != null}">
+	    <h3 class="text-center mb-3">Mensajes Iniciales del Ejemplar</h3>
+	    <table class="table table-hover">
+	        <thead>
+	            <tr>
+	                <th>Fecha</th>
+	                <th>Mensaje</th>
+	                <th>Registrado por</th>
+	            </tr>
+	        </thead>
+	        <tbody>
+	            <tr th:each="mensaje : ${mensajesIniciales}">
+					<td th:text="${#temporals.format(mensaje.fechaHora, 'dd-MM-yyyy HH:mm')}"></td>
+					<td th:text="${mensaje.mensaje}"></td>
+	                <td th:text="${mensaje.persona.nombre}"></td>
+	            </tr>
+	        </tbody>
+	    </table>
+	</div>
 
     <footer>
         <p>&copy; 2025 Vivero de Ángel. Todos los derechos reservados.</p>

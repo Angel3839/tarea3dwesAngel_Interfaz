@@ -134,6 +134,47 @@ public class MainController {
         return "redirect:/index";
     }
     
+    /* Método para flipar ejemplares por planta */
+    @GetMapping("/ejemplares/filtrar")
+    public String filtrarEjemplaresPorPlanta(@RequestParam String codigoPlanta, Model model) {
+        List<Planta> listaPlantas = plantaRepository.findAll();
+        model.addAttribute("plantas", listaPlantas);
+
+        List<Ejemplar> ejemplaresFiltrados = ejemplarRepository.encontrarEjemplaresPorCodigoPlanta(codigoPlanta);
+        model.addAttribute("ejemplaresFiltrados", ejemplaresFiltrados);
+
+        List<Ejemplar> listaEjemplares = ejemplarRepository.findAll();
+        model.addAttribute("ejemplares", listaEjemplares);
+
+        return "EjemplaresForm";
+    }
+
+    /* Método para ver los mensajes iniciales de un ejemplar */
+    @GetMapping("/ejemplares/verMensajes")
+    public String verMensajesIniciales(@RequestParam Long idEjemplar, Model model) {
+        System.out.println("ID del ejemplar seleccionado: " + idEjemplar);  // Verificar si el ID llega correctamente
+        
+        Ejemplar ejemplar = ejemplarRepository.findById(idEjemplar).orElse(null);
+        
+        if (ejemplar != null) {
+            List<Mensaje> mensajesIniciales = mensajesRepository.findByEjemplarIdOrderByFechaHoraAsc(idEjemplar);
+            System.out.println("Mensajes encontrados: " + mensajesIniciales.size());  // Verificar cantidad de mensajes
+            
+            model.addAttribute("mensajesIniciales", mensajesIniciales);
+        } else {
+            model.addAttribute("error", "No se encontró el ejemplar seleccionado.");
+        }
+        
+        // Recargar la lista de ejemplares y plantas para mantener el formulario completo
+        List<Ejemplar> listaEjemplares = ejemplarRepository.findAll();
+        List<Planta> listaPlantas = plantaRepository.findAll();
+        model.addAttribute("ejemplares", listaEjemplares);
+        model.addAttribute("plantas", listaPlantas);
+        
+        return "EjemplaresForm";
+    }
+    
+    
     /* Método para loguearse */
     @GetMapping("/index")
     public String login(@RequestParam("usuario") String usuario, @RequestParam("password") String password) {
